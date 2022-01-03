@@ -1,0 +1,47 @@
+version: "2.0"
+
+volumes:
+  static:
+
+services:
+  db:
+    image:
+      postgres:alpine
+    ports:
+      - 5430:5432
+    env_file:
+      - .env
+
+  django:
+    image:
+      stocks_products
+    build:
+      context: stocks_products
+      dockerfile: ./Dockerfile
+    volumes:
+      # - ./stocks_products:/app
+      - static:/src/static
+    ports:
+      - 8000:8000
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: always
+    command: bash -c "
+      sleep 10 &&
+      python3 manage.py collectstatic --noinput && 
+      python3 manage.py migrate &&
+      gunicorn stocks_products.wsgi -b 0.0.0.0:8000"
+
+  nginx:
+    image:
+      nginx:alpine
+    volumes:
+      - ./stocks_products:/app
+      - ./nginx:/etc/nginx/conf.d
+      - static:/src/static
+    ports:
+      - 80:80
+    depends_on:
+      - django
